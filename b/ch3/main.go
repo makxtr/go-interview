@@ -26,6 +26,12 @@ func (m *Manager) RemoveEmployee(id int) {
 	m.Employees = slices.DeleteFunc(m.Employees, func(e Employee) bool {
 		return e.ID == id
 	})
+	//for i, e := range m.Employees {
+	//	if e.ID == id {
+	//		m.Employees = append(m.Employees[:i], m.Employees[i+1:]...)
+	//		return
+	//	}
+	//}
 }
 
 // GetAverageSalary calculates the average salary of all employees.
