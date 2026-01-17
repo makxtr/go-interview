@@ -1,6 +1,7 @@
 package cache
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -127,27 +128,87 @@ func (c *LFUCache) HitRate() float64 {
 //
 // FIFO Cache Implementation
 //
+/*
+type Node struct {
+	key   string
+	value interface{}
+	next  *Node
+}
+*/
+
+type Node struct {
+	key   string
+	value interface{}
+	next  *Node
+}
 
 type FIFOCache struct {
-	// TODO: Add necessary fields for FIFO implementation
-	// Hint: Use a queue or circular buffer
+	capacity int
+	cache    map[string]*Node
+	head     *Node // Newest item
+	tail     *Node // Oldest item
+	hits     uint64
+	misses   uint64
 }
 
 // NewFIFOCache creates a new FIFO cache with the specified capacity
 func NewFIFOCache(capacity int) *FIFOCache {
-	// TODO: Implement FIFO cache constructor
-	return nil
+	if capacity <= 0 {
+		return nil
+	}
+
+	return &FIFOCache{
+		capacity: capacity,
+		cache:    make(map[string]*Node),
+		head:     nil,
+		tail:     nil,
+		hits:     0,
+		misses:   0,
+	}
+}
+
+func (c *FIFOCache) evict() {
+	if nil == c.head {
+		return
+	}
+	delete(c.cache, c.head.key)
+
+	c.head = c.head.next
+	if nil == c.head {
+		c.tail = nil
+	}
 }
 
 func (c *FIFOCache) Get(key string) (interface{}, bool) {
-	// TODO: Implement FIFO get operation
 	// Note: Get operations don't affect eviction order in FIFO
+	if n, ok := c.cache[key]; ok {
+		c.hits++
+		return n.value, true
+	}
+	c.misses++
+
 	return nil, false
 }
 
 func (c *FIFOCache) Put(key string, value interface{}) {
-	// TODO: Implement FIFO put operation
 	// Should evict first-in item if at capacity
+	if n, ok := c.cache[key]; ok {
+		n.value = value
+		return
+	}
+	if len(c.cache) == c.capacity {
+		c.evict()
+	}
+	newNode := &Node{key: key, value: value, next: nil}
+	c.cache[key] = newNode
+
+	if nil == c.head {
+		c.head = newNode
+		c.tail = newNode
+	} else {
+		c.tail.next = newNode
+		c.tail = newNode
+	}
 }
 
 func (c *FIFOCache) Delete(key string) bool {
@@ -156,22 +217,32 @@ func (c *FIFOCache) Delete(key string) bool {
 }
 
 func (c *FIFOCache) Clear() {
-	// TODO: Implement clear operation
+	c.cache = make(map[string]*Node)
+	c.head = nil
+	c.tail = nil
+
+	c.hits = 0
+	c.misses = 0
 }
 
 func (c *FIFOCache) Size() int {
-	// TODO: Return current cache size
-	return 0
+	return len(c.cache)
 }
 
 func (c *FIFOCache) Capacity() int {
-	// TODO: Return cache capacity
-	return 0
+	return c.capacity
 }
 
 func (c *FIFOCache) HitRate() float64 {
-	// TODO: Calculate and return hit rate
-	return 0.0
+	totalReq := c.hits + c.misses
+
+	if 0 == totalReq {
+		return 0.0
+	}
+
+	fmt.Println(totalReq)
+
+	return float64(c.hits) / float64(totalReq)
 }
 
 //

@@ -245,6 +245,17 @@ func TestFIFOCache(t *testing.T) {
 		if !found || value != 3 {
 			t.Errorf("Expected 'c' to be present with value 3, got (%v, %v)", value, found)
 		}
+		
+		hitRate := cache.HitRate()
+		expectedHitRate := 3.0 / 4.0 // 3 hits out of 4 total gets
+		if hitRate < expectedHitRate-0.01 || hitRate > expectedHitRate+0.01 {
+			t.Errorf("Expected hit rate ~%.3f, got %f", expectedHitRate, hitRate)
+		}
+
+		cache.Clear()
+		if cache.Size() != 0 {
+			t.Errorf("Expected size 0 after clear, got %d", cache.Size())
+		}
 	})
 }
 
