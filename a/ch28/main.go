@@ -1,7 +1,6 @@
 package cache
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -174,7 +173,7 @@ func (c *FIFOCache) evict() {
 	delete(c.cache, c.head.key)
 
 	c.head = c.head.next
-	if nil == c.head {
+	if c.head == nil {
 		c.tail = nil
 	}
 }
@@ -202,7 +201,7 @@ func (c *FIFOCache) Put(key string, value interface{}) {
 	newNode := &Node{key: key, value: value, next: nil}
 	c.cache[key] = newNode
 
-	if nil == c.head {
+	if c.head == nil {
 		c.head = newNode
 		c.tail = newNode
 	} else {
@@ -212,7 +211,29 @@ func (c *FIFOCache) Put(key string, value interface{}) {
 }
 
 func (c *FIFOCache) Delete(key string) bool {
-	// TODO: Implement delete operation
+	if n, ok := c.cache[key]; ok {
+		nodeToDelete := n
+		delete(c.cache, key)
+
+		if nodeToDelete == c.head {
+			c.head = c.head.next
+			if c.head == nil {
+				c.tail = nil
+			}
+		} else {
+			prev := c.head
+			for prev.next != nodeToDelete {
+				prev = prev.next
+			}
+			prev.next = nodeToDelete.next
+
+			if nodeToDelete == c.tail {
+				c.tail = prev
+			}
+		}
+		return true
+	}
+
 	return false
 }
 
@@ -239,8 +260,6 @@ func (c *FIFOCache) HitRate() float64 {
 	if 0 == totalReq {
 		return 0.0
 	}
-
-	fmt.Println(totalReq)
 
 	return float64(c.hits) / float64(totalReq)
 }
