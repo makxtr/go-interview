@@ -202,7 +202,7 @@ func TestLFUCache(t *testing.T) {
 // TestFIFOCache tests the FIFO cache implementation
 func TestFIFOCache(t *testing.T) {
 	t.Run("Basic Operations", func(t *testing.T) {
-		cache := NewFIFOCache(2)
+		cache := NewCache(FIFO, 2)
 		if cache == nil {
 			t.Fatal("NewFIFOCache returned nil")
 		}
@@ -217,7 +217,7 @@ func TestFIFOCache(t *testing.T) {
 	})
 
 	t.Run("FIFO Eviction", func(t *testing.T) {
-		cache := NewFIFOCache(2)
+		cache := NewCache(FIFO, 2)
 
 		// Fill cache
 		cache.Put("a", 1)

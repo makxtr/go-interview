@@ -24,154 +24,344 @@ const (
 	FIFO
 )
 
+type Node struct {
+	key   string
+	value interface{}
+}
+
 //
 // LRU Cache Implementation
 //
 
+type LRUNode struct {
+	Node
+	prev *LRUNode
+	next *LRUNode
+}
+
 type LRUCache struct {
-	// TODO: Add necessary fields for LRU implementation
-	// Hint: Use a doubly-linked list + hash map
+	capacity int
+	cache    map[string]*LRUNode
+	head     *LRUNode // Most recently used
+	tail     *LRUNode // Least recently used
+	hits     uint64
+	misses   uint64
 }
 
 // NewLRUCache creates a new LRU cache with the specified capacity
 func NewLRUCache(capacity int) *LRUCache {
-	// TODO: Implement LRU cache constructor
-	return nil
+	if capacity <= 0 {
+		return nil
+	}
+	return &LRUCache{
+		capacity: capacity,
+		cache:    make(map[string]*LRUNode),
+	}
 }
 
 func (c *LRUCache) Get(key string) (interface{}, bool) {
-	// TODO: Implement LRU get operation
-	// Should move accessed item to front (most recently used position)
-	return nil, false
+	node, ok := c.cache[key]
+	if !ok {
+		c.misses++
+		return nil, false
+	}
+	c.hits++
+	c.moveToFront(node)
+	return node.value, true
 }
 
 func (c *LRUCache) Put(key string, value interface{}) {
-	// TODO: Implement LRU put operation
-	// Should add new item to front and evict least recently used if at capacity
+	if c.capacity <= 0 {
+		return
+	}
+
+	if node, ok := c.cache[key]; ok {
+		node.value = value
+		c.moveToFront(node)
+		return
+	}
+
+	if len(c.cache) >= c.capacity {
+		delete(c.cache, c.tail.key)
+		c.removeNode(c.tail)
+	}
+
+	newNode := &LRUNode{Node: Node{key: key, value: value}}
+	c.cache[key] = newNode
+	c.addNode(newNode)
 }
 
 func (c *LRUCache) Delete(key string) bool {
-	// TODO: Implement delete operation
-	return false
+	node, ok := c.cache[key]
+	if !ok {
+		return false
+	}
+	delete(c.cache, key)
+	c.removeNode(node)
+	return true
 }
 
 func (c *LRUCache) Clear() {
-	// TODO: Implement clear operation
+	c.cache = make(map[string]*LRUNode)
+	c.head = nil
+	c.tail = nil
+	c.hits = 0
+	c.misses = 0
 }
 
 func (c *LRUCache) Size() int {
-	// TODO: Return current cache size
-	return 0
+	return len(c.cache)
 }
 
 func (c *LRUCache) Capacity() int {
-	// TODO: Return cache capacity
-	return 0
+	return c.capacity
 }
 
 func (c *LRUCache) HitRate() float64 {
-	// TODO: Calculate and return hit rate
-	return 0.0
+	totalReq := c.hits + c.misses
+	if totalReq == 0 {
+		return 0.0
+	}
+	return float64(c.hits) / float64(totalReq)
+}
+
+// LRU helper methods
+func (c *LRUCache) addNode(node *LRUNode) {
+	node.prev = nil
+	node.next = c.head
+	if c.head != nil {
+		c.head.prev = node
+	}
+	c.head = node
+	if c.tail == nil {
+		c.tail = node
+	}
+}
+
+func (c *LRUCache) removeNode(node *LRUNode) {
+	if node.prev != nil {
+		node.prev.next = node.next
+	} else {
+		c.head = node.next
+	}
+	if node.next != nil {
+		node.next.prev = node.prev
+	} else {
+		c.tail = node.prev
+	}
+}
+
+func (c *LRUCache) moveToFront(node *LRUNode) {
+	if node == c.head {
+		return
+	}
+	c.removeNode(node)
+	c.addNode(node)
 }
 
 //
 // LFU Cache Implementation
 //
 
-type LFUCache struct {
-	// TODO: Add necessary fields for LFU implementation
-	// Hint: Use frequency tracking with efficient eviction
+type LFUNode struct {
+	Node
+	freq int
+	prev *LFUNode
+	next *LFUNode
 }
 
-// NewLFUCache creates a new LFU cache with the specified capacity
+type LFUDoublyLinkedList struct {
+	head *LFUNode
+	tail *LFUNode
+	len  int
+}
+
+func NewLFUDoublyLinkedList() *LFUDoublyLinkedList {
+	return &LFUDoublyLinkedList{}
+}
+
+func (l *LFUDoublyLinkedList) Add(node *LFUNode) {
+	node.prev = nil
+	node.next = nil
+	if l.head == nil {
+		l.head = node
+		l.tail = node
+	} else {
+		node.next = l.head
+		l.head.prev = node
+		l.head = node
+	}
+	l.len++
+}
+
+func (l *LFUDoublyLinkedList) Remove(node *LFUNode) {
+	if node.prev != nil {
+		node.prev.next = node.next
+	} else {
+		l.head = node.next
+	}
+	if node.next != nil {
+		node.next.prev = node.prev
+	} else {
+		l.tail = node.prev
+	}
+	node.prev = nil
+	node.next = nil
+	l.len--
+}
+
+func (l *LFUDoublyLinkedList) RemoveTail() *LFUNode {
+	if l.tail == nil {
+		return nil
+	}
+	node := l.tail
+	l.Remove(node)
+	return node
+}
+
+type LFUCache struct {
+	capacity   int
+	minFreq    int
+	cache      map[string]*LFUNode
+	freqGroups map[int]*LFUDoublyLinkedList
+	hits       uint64
+	misses     uint64
+}
+
 func NewLFUCache(capacity int) *LFUCache {
-	// TODO: Implement LFU cache constructor
-	return nil
+	if capacity <= 0 {
+		return nil
+	}
+	return &LFUCache{
+		capacity:   capacity,
+		cache:      make(map[string]*LFUNode),
+		freqGroups: make(map[int]*LFUDoublyLinkedList),
+	}
 }
 
 func (c *LFUCache) Get(key string) (interface{}, bool) {
-	// TODO: Implement LFU get operation
-	// Should increment frequency count of accessed item
-	return nil, false
+	node, ok := c.cache[key]
+	if !ok {
+		c.misses++
+		return nil, false
+	}
+	c.hits++
+	c.updateNodeFreq(node)
+	return node.value, true
 }
 
 func (c *LFUCache) Put(key string, value interface{}) {
-	// TODO: Implement LFU put operation
-	// Should evict least frequently used item if at capacity
+	if c.capacity <= 0 {
+		return
+	}
+	if node, ok := c.cache[key]; ok {
+		node.value = value
+		c.updateNodeFreq(node)
+		return
+	}
+	if len(c.cache) >= c.capacity {
+		list := c.freqGroups[c.minFreq]
+		nodeToEvict := list.RemoveTail()
+		if nodeToEvict != nil {
+			delete(c.cache, nodeToEvict.key)
+		}
+	}
+	newNode := &LFUNode{Node: Node{key: key, value: value}, freq: 1}
+	c.cache[key] = newNode
+	c.minFreq = 1
+	list, exists := c.freqGroups[1]
+	if !exists {
+		list = NewLFUDoublyLinkedList()
+		c.freqGroups[1] = list
+	}
+	list.Add(newNode)
 }
 
 func (c *LFUCache) Delete(key string) bool {
-	// TODO: Implement delete operation
-	return false
+	node, ok := c.cache[key]
+	if !ok {
+		return false
+	}
+	list := c.freqGroups[node.freq]
+	list.Remove(node)
+	delete(c.cache, key)
+	return true
 }
 
 func (c *LFUCache) Clear() {
-	// TODO: Implement clear operation
+	c.cache = make(map[string]*LFUNode)
+	c.freqGroups = make(map[int]*LFUDoublyLinkedList)
+	c.minFreq = 0
+	c.hits = 0
+	c.misses = 0
 }
 
 func (c *LFUCache) Size() int {
-	// TODO: Return current cache size
-	return 0
+	return len(c.cache)
 }
 
 func (c *LFUCache) Capacity() int {
-	// TODO: Return cache capacity
-	return 0
+	return c.capacity
 }
 
 func (c *LFUCache) HitRate() float64 {
-	// TODO: Calculate and return hit rate
-	return 0.0
+	totalReq := c.hits + c.misses
+	if totalReq == 0 {
+		return 0.0
+	}
+	return float64(c.hits) / float64(totalReq)
+}
+
+func (c *LFUCache) updateNodeFreq(node *LFUNode) {
+	oldFreq := node.freq
+	list := c.freqGroups[oldFreq]
+	list.Remove(node)
+	if oldFreq == c.minFreq && list.len == 0 {
+		c.minFreq++
+	}
+	newFreq := oldFreq + 1
+	node.freq = newFreq
+	newList, exists := c.freqGroups[newFreq]
+	if !exists {
+		newList = NewLFUDoublyLinkedList()
+		c.freqGroups[newFreq] = newList
+	}
+	newList.Add(node)
 }
 
 //
 // FIFO Cache Implementation
 //
-/*
-type Node struct {
-	key   string
-	value interface{}
-	next  *Node
-}
-*/
 
-type Node struct {
-	key   string
-	value interface{}
-	next  *Node
+type FIFONode struct {
+	Node
+	next *FIFONode
 }
 
 type FIFOCache struct {
 	capacity int
-	cache    map[string]*Node
-	head     *Node // Newest item
-	tail     *Node // Oldest item
+	cache    map[string]*FIFONode
+	head     *FIFONode
+	tail     *FIFONode
 	hits     uint64
 	misses   uint64
 }
 
-// NewFIFOCache creates a new FIFO cache with the specified capacity
 func NewFIFOCache(capacity int) *FIFOCache {
 	if capacity <= 0 {
 		return nil
 	}
-
 	return &FIFOCache{
 		capacity: capacity,
-		cache:    make(map[string]*Node),
-		head:     nil,
-		tail:     nil,
-		hits:     0,
-		misses:   0,
+		cache:    make(map[string]*FIFONode),
 	}
 }
 
 func (c *FIFOCache) evict() {
-	if nil == c.head {
+	if c.head == nil {
 		return
 	}
 	delete(c.cache, c.head.key)
-
 	c.head = c.head.next
 	if c.head == nil {
 		c.tail = nil
@@ -179,28 +369,27 @@ func (c *FIFOCache) evict() {
 }
 
 func (c *FIFOCache) Get(key string) (interface{}, bool) {
-	// Note: Get operations don't affect eviction order in FIFO
 	if n, ok := c.cache[key]; ok {
 		c.hits++
 		return n.value, true
 	}
 	c.misses++
-
 	return nil, false
 }
 
 func (c *FIFOCache) Put(key string, value interface{}) {
-	// Should evict first-in item if at capacity
+	if c.capacity <= 0 {
+		return
+	}
 	if n, ok := c.cache[key]; ok {
 		n.value = value
 		return
 	}
-	if len(c.cache) == c.capacity {
+	if len(c.cache) >= c.capacity {
 		c.evict()
 	}
-	newNode := &Node{key: key, value: value, next: nil}
+	newNode := &FIFONode{Node: Node{key: key, value: value}}
 	c.cache[key] = newNode
-
 	if c.head == nil {
 		c.head = newNode
 		c.tail = newNode
@@ -211,37 +400,35 @@ func (c *FIFOCache) Put(key string, value interface{}) {
 }
 
 func (c *FIFOCache) Delete(key string) bool {
-	if n, ok := c.cache[key]; ok {
-		nodeToDelete := n
-		delete(c.cache, key)
-
-		if nodeToDelete == c.head {
-			c.head = c.head.next
-			if c.head == nil {
-				c.tail = nil
-			}
-		} else {
-			prev := c.head
-			for prev.next != nodeToDelete {
-				prev = prev.next
-			}
-			prev.next = nodeToDelete.next
-
-			if nodeToDelete == c.tail {
-				c.tail = prev
-			}
+	nodeToDelete, ok := c.cache[key]
+	if !ok {
+		return false
+	}
+	delete(c.cache, key)
+	if nodeToDelete == c.head {
+		c.head = c.head.next
+		if c.head == nil {
+			c.tail = nil
 		}
 		return true
 	}
-
-	return false
+	prev := c.head
+	for prev != nil && prev.next != nodeToDelete {
+		prev = prev.next
+	}
+	if prev != nil {
+		prev.next = nodeToDelete.next
+		if nodeToDelete == c.tail {
+			c.tail = prev
+		}
+	}
+	return true
 }
 
 func (c *FIFOCache) Clear() {
-	c.cache = make(map[string]*Node)
+	c.cache = make(map[string]*FIFONode)
 	c.head = nil
 	c.tail = nil
-
 	c.hits = 0
 	c.misses = 0
 }
@@ -256,11 +443,9 @@ func (c *FIFOCache) Capacity() int {
 
 func (c *FIFOCache) HitRate() float64 {
 	totalReq := c.hits + c.misses
-
-	if 0 == totalReq {
+	if totalReq == 0 {
 		return 0.0
 	}
-
 	return float64(c.hits) / float64(totalReq)
 }
 
@@ -271,74 +456,73 @@ func (c *FIFOCache) HitRate() float64 {
 type ThreadSafeCache struct {
 	cache Cache
 	mu    sync.RWMutex
-	// TODO: Add any additional fields if needed
 }
 
-// NewThreadSafeCache wraps any cache implementation to make it thread-safe
 func NewThreadSafeCache(cache Cache) *ThreadSafeCache {
-	// TODO: Implement thread-safe wrapper constructor
-	return nil
+	return &ThreadSafeCache{cache: cache}
 }
 
 func (c *ThreadSafeCache) Get(key string) (interface{}, bool) {
-	// TODO: Implement thread-safe get operation
-	// Hint: Use read lock for better performance
-	return nil, false
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.cache.Get(key)
 }
 
 func (c *ThreadSafeCache) Put(key string, value interface{}) {
-	// TODO: Implement thread-safe put operation
-	// Hint: Use write lock
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache.Put(key, value)
 }
 
 func (c *ThreadSafeCache) Delete(key string) bool {
-	// TODO: Implement thread-safe delete operation
-	return false
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.cache.Delete(key)
 }
 
 func (c *ThreadSafeCache) Clear() {
-	// TODO: Implement thread-safe clear operation
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.cache.Clear()
 }
 
 func (c *ThreadSafeCache) Size() int {
-	// TODO: Implement thread-safe size operation
-	return 0
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.cache.Size()
 }
 
 func (c *ThreadSafeCache) Capacity() int {
-	// TODO: Implement thread-safe capacity operation
-	return 0
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.cache.Capacity()
 }
 
 func (c *ThreadSafeCache) HitRate() float64 {
-	// TODO: Implement thread-safe hit rate operation
-	return 0.0
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.cache.HitRate()
 }
 
 //
 // Cache Factory Functions
 //
 
-// NewCache creates a cache with the specified policy and capacity
 func NewCache(policy CachePolicy, capacity int) Cache {
-	// TODO: Implement cache factory
-	// Should create appropriate cache type based on policy
 	switch policy {
 	case LRU:
-		// TODO: Return LRU cache
+		return NewLRUCache(capacity)
 	case LFU:
-		// TODO: Return LFU cache
+		return NewLFUCache(capacity)
 	case FIFO:
-		// TODO: Return FIFO cache
+		return NewFIFOCache(capacity)
 	default:
-		// TODO: Return default cache or handle error
+		// Return LRU as a sensible default
+		return NewLRUCache(capacity)
 	}
-	return nil
 }
 
 // NewThreadSafeCacheWithPolicy creates a thread-safe cache with the specified policy
 func NewThreadSafeCacheWithPolicy(policy CachePolicy, capacity int) Cache {
-	// TODO: Implement thread-safe cache factory
-	// Should create cache with policy and wrap it with thread safety
-	return nil
+	return NewThreadSafeCache(NewCache(policy, capacity))
 }
