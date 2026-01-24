@@ -6,6 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"ch14/common"
+	"ch14/order"
+	"ch14/product"
+	"ch14/user"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
@@ -14,7 +19,7 @@ import (
 
 func TestUserService(t *testing.T) {
 	// Start the user service
-	server, err := StartUserService(":50051")
+	server, err := user.StartService(":50051")
 	if err != nil {
 		t.Fatalf("Failed to start user service: %v", err)
 	}
@@ -31,16 +36,16 @@ func TestUserService(t *testing.T) {
 	defer conn.Close()
 
 	// Create a client from the connection
-	userClient := NewUserServiceClient(conn)
+	userClient := user.NewClient(conn)
 
 	t.Run("GetUser", func(t *testing.T) {
 		// Test getting an existing user
-		user, err := userClient.GetUser(context.Background(), 1)
+		u, err := userClient.GetUser(context.Background(), 1)
 		if err != nil {
 			t.Errorf("GetUser failed: %v", err)
 		} else {
-			if user.ID != 1 || user.Username != "alice" {
-				t.Errorf("Expected user with ID 1 and username 'alice', got ID %d and username '%s'", user.ID, user.Username)
+			if u.ID != 1 || u.Username != "alice" {
+				t.Errorf("Expected user with ID 1 and username 'alice', got ID %d and username '%s'", u.ID, u.Username)
 			}
 		}
 
@@ -82,7 +87,7 @@ func TestUserService(t *testing.T) {
 
 func TestProductService(t *testing.T) {
 	// Start the product service
-	server, err := StartProductService(":50052")
+	server, err := product.StartService(":50052")
 	if err != nil {
 		t.Fatalf("Failed to start product service: %v", err)
 	}
@@ -99,16 +104,16 @@ func TestProductService(t *testing.T) {
 	defer conn.Close()
 
 	// Create a client from the connection
-	productClient := NewProductServiceClient(conn)
+	productClient := product.NewClient(conn)
 
 	t.Run("GetProduct", func(t *testing.T) {
 		// Test getting an existing product
-		product, err := productClient.GetProduct(context.Background(), 1)
+		p, err := productClient.GetProduct(context.Background(), 1)
 		if err != nil {
 			t.Errorf("GetProduct failed: %v", err)
 		} else {
-			if product.ID != 1 || product.Name != "Laptop" {
-				t.Errorf("Expected product with ID 1 and name 'Laptop', got ID %d and name '%s'", product.ID, product.Name)
+			if p.ID != 1 || p.Name != "Laptop" {
+				t.Errorf("Expected product with ID 1 and name 'Laptop', got ID %d and name '%s'", p.ID, p.Name)
 			}
 		}
 
@@ -165,7 +170,7 @@ func TestOrderService(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		server, err := StartUserService(":50053")
+		server, err := user.StartService(":50053")
 		if err != nil {
 			t.Errorf("Failed to start user service: %v", err)
 			return
@@ -177,7 +182,7 @@ func TestOrderService(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
-		server, err := StartProductService(":50054")
+		server, err := product.StartService(":50054")
 		if err != nil {
 			t.Errorf("Failed to start product service: %v", err)
 			return
@@ -191,23 +196,23 @@ func TestOrderService(t *testing.T) {
 	time.Sleep(300 * time.Millisecond)
 
 	// Connect to both services
-	orderService, err := ConnectToServices("localhost:50053", "localhost:50054")
+	orderService, err := order.ConnectToServices("localhost:50053", "localhost:50054")
 	if err != nil {
 		t.Fatalf("Failed to connect to services: %v", err)
 	}
 
 	t.Run("CreateOrder_Success", func(t *testing.T) {
 		// Test creating an order with valid user and product
-		order, err := orderService.CreateOrder(context.Background(), 1, 1, 2)
+		o, err := orderService.CreateOrder(context.Background(), 1, 1, 2)
 		if err != nil {
 			t.Errorf("CreateOrder failed: %v", err)
 		} else {
-			if order.UserID != 1 || order.ProductID != 1 || order.Quantity != 2 {
+			if o.UserID != 1 || o.ProductID != 1 || o.Quantity != 2 {
 				t.Errorf("Expected order with UserID 1, ProductID 1, and Quantity 2, got UserID %d, ProductID %d, and Quantity %d",
-					order.UserID, order.ProductID, order.Quantity)
+					o.UserID, o.ProductID, o.Quantity)
 			}
-			if order.Total != 1999.98 { // 2 * 999.99
-				t.Errorf("Expected total 1999.98, got %f", order.Total)
+			if o.Total != 1999.98 { // 2 * 999.99
+				t.Errorf("Expected total 1999.98, got %f", o.Total)
 			}
 		}
 	})
@@ -260,15 +265,15 @@ func TestInterceptors(t *testing.T) {
 	t.Run("LoggingInterceptor", func(t *testing.T) {
 		// Test that logging interceptor can be called without error
 		ctx := context.Background()
-		req := &GetUserRequest{UserId: 1}
+		req := &user.GetUserRequest{UserId: 1}
 		info := &grpc.UnaryServerInfo{
 			FullMethod: "/user.UserService/GetUser",
 		}
 		handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-			return &GetUserResponse{User: &User{ID: 1, Username: "test"}}, nil
+			return &user.GetUserResponse{User: &user.User{ID: 1, Username: "test"}}, nil
 		}
 
-		resp, err := LoggingInterceptor(ctx, req, info, handler)
+		resp, err := common.LoggingInterceptor(ctx, req, info, handler)
 		if err != nil {
 			t.Errorf("LoggingInterceptor failed: %v", err)
 		}
@@ -281,13 +286,13 @@ func TestInterceptors(t *testing.T) {
 		// Test that auth interceptor can be called without error
 		ctx := context.Background()
 		method := "/user.UserService/GetUser"
-		req := &GetUserRequest{UserId: 1}
-		reply := &GetUserResponse{}
+		req := &user.GetUserRequest{UserId: 1}
+		reply := &user.GetUserResponse{}
 		invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
 			return nil
 		}
 
-		err := AuthInterceptor(ctx, method, req, reply, nil, invoker)
+		err := common.AuthInterceptor(ctx, method, req, reply, nil, invoker)
 		if err != nil {
 			t.Errorf("AuthInterceptor failed: %v", err)
 		}
