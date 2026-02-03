@@ -1,0 +1,27 @@
+goos: darwin
+goarch: amd64
+pkg: ch16
+cpu: Intel(R) Core(TM) i7-8750H CPU @ 2.20GHz
+BenchmarkExpensiveCalculation/Small-12         	25446662	        48.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25173487	        47.15 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25247286	        47.19 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25488466	        47.15 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25513152	        47.09 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25238073	        47.13 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Small-12         	25493353	        47.12 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9281493	       129.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9304288	       129.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9303952	       129.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9290173	       129.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9291459	       129.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9295710	       129.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Medium-12        	 9275961	       129.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4070665	       290.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4095110	       292.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4065297	       295.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4110249	       292.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4135651	       292.5 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4108365	       292.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkExpensiveCalculation/Large-12         	 4075183	       290.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	ch16	29.037s
