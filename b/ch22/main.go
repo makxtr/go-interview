@@ -7,24 +7,92 @@ import (
 
 func main() {
 	// Standard U.S. coin denominations in cents
-	denominations := []int{1, 5, 10, 25, 50}
 
-	// Test amounts
-	amounts := []int{87, 42, 99, 33, 7}
+	denominations := []int{1, 3, 4}
+	amount := 6
 
-	for _, amount := range amounts {
-		// Find minimum number of coins
-		minCoins := MinCoins(amount, denominations)
+	coinCombo := CoinCombination(amount, denominations)
+	fmt.Println(coinCombo)
 
-		// Find coin combination
-		coinCombo := CoinCombination(amount, denominations)
+	fmt.Println("DP MinCoins:", MinCoinsDP(amount, denominations))
+	fmt.Println("DP Combination:", CoinCombinationDP(amount, denominations))
 
-		// Print results
-		fmt.Printf("Amount: %d cents\n", amount)
-		fmt.Printf("Minimum coins needed: %d\n", minCoins)
-		fmt.Printf("Coin combination: %v\n", coinCombo)
-		fmt.Println("---------------------------")
+	//denominations := []int{1, 5, 10, 25, 50}
+	//
+	//// Test amounts
+	//amounts := []int{87, 42, 99, 33, 7}
+	//
+	//for _, amount := range amounts {
+	//	// Find minimum number of coins
+	//	minCoins := MinCoins(amount, denominations)
+	//
+	//	// Find coin combination
+	//	coinCombo := CoinCombination(amount, denominations)
+	//
+	//	// Print results
+	//	fmt.Printf("Amount: %d cents\n", amount)
+	//	fmt.Printf("Minimum coins needed: %d\n", minCoins)
+	//	fmt.Printf("Coin combination: %v\n", coinCombo)
+	//	fmt.Println("---------------------------")
+	//}
+}
+
+// MinCoinsDP returns the minimum number of coins needed to make the given amount
+// using bottom-up dynamic programming. Returns -1 if the amount cannot be made.
+// Time: O(amount * len(denominations)). Space: O(amount).
+func MinCoinsDP(amount int, denominations []int) int {
+	if amount < 0 {
+		return -1
 	}
+	const inf = int(^uint(0) >> 1)
+	dp := make([]int, amount+1)
+	for i := 1; i <= amount; i++ {
+		dp[i] = inf
+	}
+	for i := 1; i <= amount; i++ {
+		for _, coin := range denominations {
+			if coin <= i && dp[i-coin] != inf && dp[i-coin]+1 < dp[i] {
+				dp[i] = dp[i-coin] + 1
+			}
+		}
+	}
+	if dp[amount] == inf {
+		return -1
+	}
+	return dp[amount]
+}
+
+// CoinCombinationDP returns the optimal coin combination using DP. Keys are coin
+// denominations, values are coin counts. Returns an empty map if the amount cannot
+// be made. Tracks the chosen coin at each subproblem to reconstruct the solution.
+func CoinCombinationDP(amount int, denominations []int) map[int]int {
+	if amount < 0 {
+		return map[int]int{}
+	}
+	const inf = int(^uint(0) >> 1)
+	dp := make([]int, amount+1)
+	pick := make([]int, amount+1) // coin chosen to reach amount i
+	for i := 1; i <= amount; i++ {
+		dp[i] = inf
+	}
+	for i := 1; i <= amount; i++ {
+		for _, coin := range denominations {
+			if coin <= i && dp[i-coin] != inf && dp[i-coin]+1 < dp[i] {
+				dp[i] = dp[i-coin] + 1
+				pick[i] = coin
+			}
+		}
+	}
+	if dp[amount] == inf {
+		return map[int]int{}
+	}
+	combination := make(map[int]int)
+	for i := amount; i > 0; {
+		coin := pick[i]
+		combination[coin]++
+		i -= coin
+	}
+	return combination
 }
 
 // MinCoins returns the minimum number of coins needed to make the given amount.
