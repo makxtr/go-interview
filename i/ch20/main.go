@@ -109,7 +109,10 @@ func (cb *circuitBreakerImpl) Call(ctx context.Context, operation func() (interf
 	// 4. For StateHalfOpen: limit concurrent requests and handle state transitions
 	// 5. Update metrics and state based on operation result
 
-	return nil, errors.New("not implemented")
+	result, err := operation() // Original operation error
+	cb.recordSuccess()
+
+	return result, err
 }
 
 // GetState returns the current state of the circuit breaker
@@ -150,8 +153,12 @@ func (cb *circuitBreakerImpl) canExecute() error {
 func (cb *circuitBreakerImpl) recordSuccess() {
 	// TODO: Implement success recording
 	// 1. Increment success and request counters
+	cb.metrics.Successes++
+	cb.metrics.Requests++
+	cb.metrics.ConsecutiveFailures = 0
 	// 2. Reset consecutive failures
 	// 3. In half-open state, consider transitioning to closed
+
 }
 
 // recordFailure records a failed operation
