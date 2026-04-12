@@ -134,13 +134,28 @@ func (cb *circuitBreakerImpl) Call(ctx context.Context, operation func() (interf
 		} else {
 			return nil, ErrCircuitBreakerOpen
 		}
+	case StateHalfOpen:
+		cb.halfOpenRequests++
+		if cb.halfOpenRequests > cb.config.MaxRequests {
+			return nil, ErrTooManyRequests
+		}
+		if err := cb.canExecute(); err != nil {
+			return nil, err
+		}
 
 	default:
 		panic("unhandled default case")
 	}
 
-	result, err := operation() // Original operation error
+	result, err := operation()
+	if err != nil {
+		cb.recordFailure()
+		return nil, err
+	}
 	cb.recordSuccess()
+	if cb.GetState() == StateHalfOpen {
+		cb.setState(StateClosed)
+	}
 
 	return result, err
 }
