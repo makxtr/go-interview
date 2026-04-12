@@ -109,6 +109,12 @@ func (cb *circuitBreakerImpl) Call(ctx context.Context, operation func() (interf
 	// 4. For StateHalfOpen: limit concurrent requests and handle state transitions
 	// 5. Update metrics and state based on operation result
 
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
 	switch cb.GetState() {
 	case StateClosed:
 		result, err := operation() // Original operation error
@@ -119,9 +125,16 @@ func (cb *circuitBreakerImpl) Call(ctx context.Context, operation func() (interf
 			}
 			return nil, err
 		}
-
 		cb.recordSuccess()
 		return result, err
+	case StateOpen:
+		if cb.isReady() {
+			cb.setState(StateHalfOpen)
+			cb.halfOpenRequests = 0
+		} else {
+			return nil, ErrCircuitBreakerOpen
+		}
+
 	default:
 		panic("unhandled default case")
 	}
@@ -211,6 +224,10 @@ func (cb *circuitBreakerImpl) shouldTrip() bool {
 func (cb *circuitBreakerImpl) isReady() bool {
 	// TODO: Implement readiness check
 	// Check if enough time has passed since last state change (Timeout duration)
+	if time.Since(cb.lastStateChange) > cb.config.Timeout {
+		return true
+	}
+
 	return false
 }
 
