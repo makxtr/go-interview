@@ -109,6 +109,23 @@ func (cb *circuitBreakerImpl) Call(ctx context.Context, operation func() (interf
 	// 4. For StateHalfOpen: limit concurrent requests and handle state transitions
 	// 5. Update metrics and state based on operation result
 
+	switch cb.GetState() {
+	case StateClosed:
+		result, err := operation() // Original operation error
+		if err != nil {
+			cb.recordFailure()
+			if cb.config.ReadyToTrip(cb.GetMetrics()) {
+				cb.setState(StateOpen)
+			}
+			return nil, err
+		}
+
+		cb.recordSuccess()
+		return result, err
+	default:
+		panic("unhandled default case")
+	}
+
 	result, err := operation() // Original operation error
 	cb.recordSuccess()
 
@@ -137,6 +154,14 @@ func (cb *circuitBreakerImpl) setState(newState State) {
 	// 3. Reset appropriate metrics based on new state
 	// 4. Call OnStateChange callback if configured
 	// 5. Handle half-open specific logic (reset halfOpenRequests)
+
+	if cb.state == newState {
+		return
+	}
+
+	//oldState := cb.state
+	cb.state = newState
+	cb.lastStateChange = time.Now()
 }
 
 // canExecute determines if a request can be executed in the current state
@@ -164,6 +189,10 @@ func (cb *circuitBreakerImpl) recordSuccess() {
 // recordFailure records a failed operation
 func (cb *circuitBreakerImpl) recordFailure() {
 	// TODO: Implement failure recording
+	cb.metrics.Failures++
+	cb.metrics.Requests++
+	cb.metrics.ConsecutiveFailures++
+	cb.metrics.LastFailureTime = time.Now()
 	// 1. Increment failure and request counters
 	// 2. Increment consecutive failures
 	// 3. Update last failure time
